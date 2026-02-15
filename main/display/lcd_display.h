@@ -29,12 +29,19 @@ protected:
     lv_obj_t* emoji_image_ = nullptr;
     std::unique_ptr<LvglGif> gif_controller_ = nullptr;
     lv_obj_t* emoji_box_ = nullptr;
+    // Objetos geométricos para desenhar emoções em tela cheia (olhos + boca).
+    lv_obj_t* emotion_face_ = nullptr;
+    lv_obj_t* emotion_eye_left_ = nullptr;
+    lv_obj_t* emotion_eye_right_ = nullptr;
+    lv_obj_t* emotion_mouth_ = nullptr;
     lv_obj_t* chat_message_label_ = nullptr;
     esp_timer_handle_t preview_timer_ = nullptr;
     std::unique_ptr<LvglImage> preview_image_cached_ = nullptr;
 
     void InitializeLcdThemes();
     void SetupUI();
+    void EnsureEmotionFaceObjects();
+    bool RenderEmotionGeometry(const char* emotion);
     virtual bool Lock(int timeout_ms = 0) override;
     virtual void Unlock() override;
    

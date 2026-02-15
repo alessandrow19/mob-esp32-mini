@@ -22,44 +22,50 @@ namespace {
 
 // Cor fixa dos desenhos de emoção (RGB hex).
 // Para mudar para outra cor, altere este valor.
-constexpr uint32_t kEmotionDrawingColorHex = 0xFF0000;
+constexpr uint32_t kEmotionDrawingColorHex = 0x00BFFF;
 
-/**
- * Retorna um desenho textual simples para cada emoção.
- *
- * Observação: usamos desenhos ASCII/UTF-8 curtos para evitar dependência
- * de imagens e manter compatibilidade com fontes leves no firmware.
- */
-const char* GetEmotionDrawing(const char* emotion) {
+struct EmotionGeometry {
+    int eye_w;
+    int eye_h;
+    int eye_y;
+    int eye_gap;
+    int eye_radius;
+    int mouth_w;
+    int mouth_h;
+    int mouth_y;
+    int mouth_radius;
+};
+
+const EmotionGeometry* GetEmotionGeometry(const char* emotion) {
     if (emotion == nullptr) {
         return nullptr;
     }
 
-    static const std::unordered_map<std::string, const char*> kEmotionDrawings = {
-        {"happy", "^_^"},
-        {"laughing", "xD"},
-        {"funny", "^o^"},
-        {"loving", "*_*"},
-        {"embarrassed", "^_^\""},
-        {"confident", "u_u"},
-        {"delicious", "^q^"},
-        {"sad", "T_T"},
-        {"crying", "Q_Q"},
-        {"sleepy", "-_-"},
-        {"silly", "@_@"},
-        {"angry", ">_<"},
-        {"surprised", "O_O"},
-        {"shocked", "0_0"},
-        {"thinking", "o_o?"},
-        {"winking", ";)"},
-        {"relaxed", "^~^"},
-        {"confused", "o_O"},
-        {"neutral", "-.-"},
-        {"idle", "-.-"},
+    static const std::unordered_map<std::string, EmotionGeometry> kEmotionGeometries = {
+        {"happy",      {56, 30, -28, 22, 12, 70, 14, 34, 7}},
+        {"laughing",   {58, 30, -28, 22, 12, 84, 18, 36, 9}},
+        {"funny",      {52, 28, -30, 28, 10, 70, 10, 34, 5}},
+        {"loving",     {50, 30, -28, 24, 14, 62, 16, 36, 8}},
+        {"embarrassed",{50, 28, -26, 24, 12, 54, 10, 36, 5}},
+        {"confident",  {58, 22, -30, 20, 8, 64, 10, 35, 5}},
+        {"delicious",  {52, 30, -26, 22, 12, 74, 14, 38, 7}},
+        {"sad",        {54, 26, -24, 24, 10, 72, 8, 44, 4}},
+        {"crying",     {54, 26, -24, 24, 10, 72, 8, 44, 4}},
+        {"sleepy",     {58, 18, -28, 20, 8, 60, 8, 38, 4}},
+        {"silly",      {52, 30, -28, 26, 12, 64, 12, 40, 6}},
+        {"angry",      {56, 24, -30, 22, 10, 70, 10, 40, 5}},
+        {"surprised",  {44, 34, -24, 30, 18, 34, 34, 38, 17}},
+        {"shocked",    {44, 34, -24, 30, 18, 34, 34, 38, 17}},
+        {"thinking",   {50, 24, -28, 22, 10, 56, 10, 40, 5}},
+        {"winking",    {56, 26, -28, 22, 10, 64, 10, 36, 5}},
+        {"relaxed",    {54, 20, -28, 20, 8, 60, 8, 36, 4}},
+        {"confused",   {52, 26, -28, 24, 10, 58, 10, 40, 5}},
+        {"neutral",    {54, 24, -28, 20, 10, 64, 8, 38, 4}},
+        {"idle",       {54, 24, -28, 20, 10, 64, 8, 38, 4}},
     };
 
-    const auto it = kEmotionDrawings.find(emotion);
-    return (it != kEmotionDrawings.end()) ? it->second : nullptr;
+    const auto it = kEmotionGeometries.find(emotion);
+    return (it != kEmotionGeometries.end()) ? &it->second : nullptr;
 }
 
 }  // namespace
@@ -723,6 +729,62 @@ void LcdDisplay::SetChatMessage(const char* role, const char* content) {
     chat_message_label_ = msg_text;
 }
 
+void LcdDisplay::EnsureEmotionFaceObjects() {
+    if (emoji_box_ == nullptr || emotion_face_ != nullptr) {
+        return;
+    }
+
+    // Camada de desenho em tela cheia para olhos e boca geométricos.
+    emotion_face_ = lv_obj_create(emoji_box_);
+    lv_obj_set_size(emotion_face_, LV_PCT(100), LV_PCT(100));
+    lv_obj_center(emotion_face_);
+    lv_obj_set_style_pad_all(emotion_face_, 0, 0);
+    lv_obj_set_style_border_width(emotion_face_, 0, 0);
+    lv_obj_set_style_radius(emotion_face_, 0, 0);
+    lv_obj_set_style_bg_color(emotion_face_, lv_color_black(), 0);
+
+    emotion_eye_left_ = lv_obj_create(emotion_face_);
+    emotion_eye_right_ = lv_obj_create(emotion_face_);
+    emotion_mouth_ = lv_obj_create(emotion_face_);
+
+    for (lv_obj_t* part : {emotion_eye_left_, emotion_eye_right_, emotion_mouth_}) {
+        lv_obj_set_style_border_width(part, 0, 0);
+        lv_obj_set_style_bg_color(part, lv_color_hex(kEmotionDrawingColorHex), 0);
+    }
+
+    lv_obj_add_flag(emotion_face_, LV_OBJ_FLAG_HIDDEN);
+}
+
+bool LcdDisplay::RenderEmotionGeometry(const char* emotion) {
+    const EmotionGeometry* geo = GetEmotionGeometry(emotion);
+    if (geo == nullptr) {
+        return false;
+    }
+
+    EnsureEmotionFaceObjects();
+    if (emotion_face_ == nullptr) {
+        return false;
+    }
+
+    // Fundo preto em toda área útil + olhos/boca azuis.
+    lv_obj_set_style_bg_color(content_, lv_color_black(), 0);
+    lv_obj_remove_flag(emotion_face_, LV_OBJ_FLAG_HIDDEN);
+
+    lv_obj_set_size(emotion_eye_left_, geo->eye_w, geo->eye_h);
+    lv_obj_set_style_radius(emotion_eye_left_, geo->eye_radius, 0);
+    lv_obj_align(emotion_eye_left_, LV_ALIGN_CENTER, -(geo->eye_w / 2 + geo->eye_gap), geo->eye_y);
+
+    lv_obj_set_size(emotion_eye_right_, geo->eye_w, geo->eye_h);
+    lv_obj_set_style_radius(emotion_eye_right_, geo->eye_radius, 0);
+    lv_obj_align(emotion_eye_right_, LV_ALIGN_CENTER, (geo->eye_w / 2 + geo->eye_gap), geo->eye_y);
+
+    lv_obj_set_size(emotion_mouth_, geo->mouth_w, geo->mouth_h);
+    lv_obj_set_style_radius(emotion_mouth_, geo->mouth_radius, 0);
+    lv_obj_align(emotion_mouth_, LV_ALIGN_CENTER, 0, geo->mouth_y);
+
+    return true;
+}
+
 void LcdDisplay::SetPreviewImage(std::unique_ptr<LvglImage> image) {
     DisplayLockGuard lock(this);
     if (content_ == nullptr) {
@@ -858,7 +920,7 @@ void LcdDisplay::SetupUI() {
     lv_obj_set_flex_align(content_, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_SPACE_EVENLY); // 子对象居中对齐，等距分布
 
     emoji_box_ = lv_obj_create(content_);
-    lv_obj_set_size(emoji_box_, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+    lv_obj_set_size(emoji_box_, LV_PCT(100), LV_PCT(100));
     lv_obj_set_style_bg_opa(emoji_box_, LV_OPA_TRANSP, 0);
     lv_obj_set_style_pad_all(emoji_box_, 0, 0);
     lv_obj_set_style_border_width(emoji_box_, 0, 0);
@@ -928,6 +990,62 @@ void LcdDisplay::SetupUI() {
     lv_obj_add_flag(low_battery_popup_, LV_OBJ_FLAG_HIDDEN);
 }
 
+void LcdDisplay::EnsureEmotionFaceObjects() {
+    if (emoji_box_ == nullptr || emotion_face_ != nullptr) {
+        return;
+    }
+
+    // Camada de desenho em tela cheia para olhos e boca geométricos.
+    emotion_face_ = lv_obj_create(emoji_box_);
+    lv_obj_set_size(emotion_face_, LV_PCT(100), LV_PCT(100));
+    lv_obj_center(emotion_face_);
+    lv_obj_set_style_pad_all(emotion_face_, 0, 0);
+    lv_obj_set_style_border_width(emotion_face_, 0, 0);
+    lv_obj_set_style_radius(emotion_face_, 0, 0);
+    lv_obj_set_style_bg_color(emotion_face_, lv_color_black(), 0);
+
+    emotion_eye_left_ = lv_obj_create(emotion_face_);
+    emotion_eye_right_ = lv_obj_create(emotion_face_);
+    emotion_mouth_ = lv_obj_create(emotion_face_);
+
+    for (lv_obj_t* part : {emotion_eye_left_, emotion_eye_right_, emotion_mouth_}) {
+        lv_obj_set_style_border_width(part, 0, 0);
+        lv_obj_set_style_bg_color(part, lv_color_hex(kEmotionDrawingColorHex), 0);
+    }
+
+    lv_obj_add_flag(emotion_face_, LV_OBJ_FLAG_HIDDEN);
+}
+
+bool LcdDisplay::RenderEmotionGeometry(const char* emotion) {
+    const EmotionGeometry* geo = GetEmotionGeometry(emotion);
+    if (geo == nullptr) {
+        return false;
+    }
+
+    EnsureEmotionFaceObjects();
+    if (emotion_face_ == nullptr) {
+        return false;
+    }
+
+    // Fundo preto em toda área útil + olhos/boca azuis.
+    lv_obj_set_style_bg_color(content_, lv_color_black(), 0);
+    lv_obj_remove_flag(emotion_face_, LV_OBJ_FLAG_HIDDEN);
+
+    lv_obj_set_size(emotion_eye_left_, geo->eye_w, geo->eye_h);
+    lv_obj_set_style_radius(emotion_eye_left_, geo->eye_radius, 0);
+    lv_obj_align(emotion_eye_left_, LV_ALIGN_CENTER, -(geo->eye_w / 2 + geo->eye_gap), geo->eye_y);
+
+    lv_obj_set_size(emotion_eye_right_, geo->eye_w, geo->eye_h);
+    lv_obj_set_style_radius(emotion_eye_right_, geo->eye_radius, 0);
+    lv_obj_align(emotion_eye_right_, LV_ALIGN_CENTER, (geo->eye_w / 2 + geo->eye_gap), geo->eye_y);
+
+    lv_obj_set_size(emotion_mouth_, geo->mouth_w, geo->mouth_h);
+    lv_obj_set_style_radius(emotion_mouth_, geo->mouth_radius, 0);
+    lv_obj_align(emotion_mouth_, LV_ALIGN_CENTER, 0, geo->mouth_y);
+
+    return true;
+}
+
 void LcdDisplay::SetPreviewImage(std::unique_ptr<LvglImage> image) {
     DisplayLockGuard lock(this);
     if (preview_image_ == nullptr) {
@@ -986,21 +1104,20 @@ void LcdDisplay::SetEmotion(const char* emotion) {
         return;
     }
 
-    // Prioridade: usar desenho textual por emoção (sem depender de imagem).
-    // Isso permite representar emoções como "happy/sad" mesmo sem assets.
-    if (emoji_label_ != nullptr) {
-        const char* drawing = GetEmotionDrawing(emotion);
-        if (drawing != nullptr) {
-            DisplayLockGuard lock(this);
-            auto lvgl_theme = static_cast<LvglTheme*>(current_theme_);
-            // Importante: desenho textual precisa usar fonte de texto comum,
-            // pois fonte de ícones pode não conter glifos ASCII (^_^, T_T, etc.).
-            lv_obj_set_style_text_font(emoji_label_, lvgl_theme->text_font()->font(), 0);
-            lv_obj_set_style_text_color(emoji_label_, lv_color_hex(kEmotionDrawingColorHex), 0);
-            lv_label_set_text(emoji_label_, drawing);
+    // Prioridade: desenhar a emoção em tela cheia (fundo preto + formas azuis).
+    {
+        DisplayLockGuard lock(this);
+        if (RenderEmotionGeometry(emotion)) {
             lv_obj_add_flag(emoji_image_, LV_OBJ_FLAG_HIDDEN);
-            lv_obj_remove_flag(emoji_label_, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_add_flag(emoji_label_, LV_OBJ_FLAG_HIDDEN);
             return;
+        }
+
+        // Se a emoção não está no conjunto geométrico, restaura fundo de tema.
+        auto lvgl_theme = static_cast<LvglTheme*>(current_theme_);
+        lv_obj_set_style_bg_color(content_, lvgl_theme->chat_background_color(), 0);
+        if (emotion_face_ != nullptr) {
+            lv_obj_add_flag(emotion_face_, LV_OBJ_FLAG_HIDDEN);
         }
     }
 
@@ -1012,6 +1129,9 @@ void LcdDisplay::SetEmotion(const char* emotion) {
             DisplayLockGuard lock(this);
             auto lvgl_theme = static_cast<LvglTheme*>(current_theme_);
             lv_obj_set_style_text_font(emoji_label_, lvgl_theme->large_icon_font()->font(), 0);
+            if (emotion_face_ != nullptr) {
+                lv_obj_add_flag(emotion_face_, LV_OBJ_FLAG_HIDDEN);
+            }
             lv_obj_set_style_text_color(emoji_label_, lvgl_theme->text_color(), 0);
             lv_label_set_text(emoji_label_, utf8);
             lv_obj_add_flag(emoji_image_, LV_OBJ_FLAG_HIDDEN);
@@ -1021,6 +1141,11 @@ void LcdDisplay::SetEmotion(const char* emotion) {
     }
 
     DisplayLockGuard lock(this);
+    auto lvgl_theme = static_cast<LvglTheme*>(current_theme_);
+    lv_obj_set_style_bg_color(content_, lvgl_theme->chat_background_color(), 0);
+    if (emotion_face_ != nullptr) {
+        lv_obj_add_flag(emotion_face_, LV_OBJ_FLAG_HIDDEN);
+    }
     if (image->IsGif()) {
         // Create new GIF controller
         gif_controller_ = std::make_unique<LvglGif>(image->image_dsc());
