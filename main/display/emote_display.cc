@@ -51,6 +51,10 @@ static const char* TAG = "EmoteDisplay";
 #define ICON_WIFI_OK             "icon_wifi"
 #define ICON_LISTEN              "listen"
 
+// Cor dos desenhos de emoção (hex RGB).
+// Para trocar, altere somente este valor (ex: 0x00FF00 verde).
+#define EMOTION_DRAWING_COLOR_HEX 0xFF0000
+
 using FlushIoReadyCallback = std::function<bool(esp_lcd_panel_io_handle_t, esp_lcd_panel_io_event_data_t*, void*)>;
 using FlushCallback = std::function<void(gfx_handle_t, int, int, int, int, const void*)>;
 
@@ -278,7 +282,7 @@ static void SetupUI(const gfx_handle_t engine_handle, EmoteDisplay* const displa
     gfx_obj_align(g_obj_label_eye, GFX_ALIGN_LEFT_MID, 10, 30);
     gfx_obj_set_size(g_obj_label_eye, 140, 50);
     gfx_label_set_text(g_obj_label_eye, "-.-");
-    gfx_label_set_color(g_obj_label_eye, GFX_COLOR_HEX(0xFFFFFF));
+    gfx_label_set_color(g_obj_label_eye, GFX_COLOR_HEX(EMOTION_DRAWING_COLOR_HEX));
     gfx_label_set_text_align(g_obj_label_eye, GFX_TEXT_ALIGN_CENTER);
     gfx_label_set_font(g_obj_label_eye, (gfx_font_t)&BUILTIN_TEXT_FONT);
     gfx_obj_set_visible(g_obj_label_eye, false);

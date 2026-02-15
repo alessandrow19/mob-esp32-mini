@@ -20,6 +20,10 @@
 
 namespace {
 
+// Cor fixa dos desenhos de emoção (RGB hex).
+// Para mudar para outra cor, altere este valor.
+constexpr uint32_t kEmotionDrawingColorHex = 0xFF0000;
+
 /**
  * Retorna um desenho textual simples para cada emoção.
  *
@@ -988,6 +992,7 @@ void LcdDisplay::SetEmotion(const char* emotion) {
         const char* drawing = GetEmotionDrawing(emotion);
         if (drawing != nullptr) {
             DisplayLockGuard lock(this);
+            lv_obj_set_style_text_color(emoji_label_, lv_color_hex(kEmotionDrawingColorHex), 0);
             lv_label_set_text(emoji_label_, drawing);
             lv_obj_add_flag(emoji_image_, LV_OBJ_FLAG_HIDDEN);
             lv_obj_remove_flag(emoji_label_, LV_OBJ_FLAG_HIDDEN);
@@ -1001,6 +1006,8 @@ void LcdDisplay::SetEmotion(const char* emotion) {
         const char* utf8 = font_awesome_get_utf8(emotion);
         if (utf8 != nullptr && emoji_label_ != nullptr) {
             DisplayLockGuard lock(this);
+            auto lvgl_theme = static_cast<LvglTheme*>(current_theme_);
+            lv_obj_set_style_text_color(emoji_label_, lvgl_theme->text_color(), 0);
             lv_label_set_text(emoji_label_, utf8);
             lv_obj_add_flag(emoji_image_, LV_OBJ_FLAG_HIDDEN);
             lv_obj_remove_flag(emoji_label_, LV_OBJ_FLAG_HIDDEN);
