@@ -37,6 +37,7 @@ static const char* TAG = "EmoteDisplay";
 
 // UI Element Names - Centralized Management
 #define UI_ELEMENT_EYE_ANIM      "eye_anim"
+#define UI_ELEMENT_EYE_LABEL     "eye_label"
 #define UI_ELEMENT_TOAST_LABEL   "toast_label"
 #define UI_ELEMENT_CLOCK_LABEL   "clock_label"
 #define UI_ELEMENT_LISTEN_ANIM   "listen_anim"
@@ -61,6 +62,7 @@ using FlushCallback = std::function<void(gfx_handle_t, int, int, int, int, const
 static gfx_obj_t* g_obj_label_toast = nullptr;
 static gfx_obj_t* g_obj_label_clock = nullptr;
 static gfx_obj_t* g_obj_anim_eye = nullptr;
+static gfx_obj_t* g_obj_label_eye = nullptr;
 static gfx_obj_t* g_obj_anim_listen = nullptr;
 static gfx_obj_t* g_obj_img_status = nullptr;
 
@@ -121,6 +123,39 @@ char StringToGfxAlign(const std::string &align_str)
 
     ESP_LOGW(TAG, "Unknown align string: %s, using GFX_ALIGN_DEFAULT", align_str.c_str());
     return GFX_ALIGN_DEFAULT;
+}
+
+/**
+ * Mapeia emoção para desenho textual quando não houver asset animado.
+ * Isso reduz dependência de imagens e mantém feedback visual simples.
+ */
+static const char* EmotionToDrawing(const std::string& emotion)
+{
+    static const std::unordered_map<std::string, const char*> kDrawings = {
+        {"happy", "^_^"},
+        {"laughing", "xD"},
+        {"funny", "^o^"},
+        {"loving", "*_*"},
+        {"embarrassed", "^_^\""},
+        {"confident", "u_u"},
+        {"delicious", "^q^"},
+        {"sad", "T_T"},
+        {"crying", "Q_Q"},
+        {"sleepy", "-_-"},
+        {"silly", "@_@"},
+        {"angry", ">_<"},
+        {"surprised", "O_O"},
+        {"shocked", "0_0"},
+        {"thinking", "o_o?"},
+        {"winking", ";)"},
+        {"relaxed", "^~^"},
+        {"confused", "o_O"},
+        {"neutral", "-.-"},
+        {"idle", "-.-"},
+    };
+
+    const auto it = kDrawings.find(emotion);
+    return (it != kDrawings.end()) ? it->second : nullptr;
 }
 
 // ============================================================================
@@ -238,6 +273,16 @@ static void SetupUI(const gfx_handle_t engine_handle, EmoteDisplay* const displa
     gfx_anim_set_auto_mirror(g_obj_anim_eye, true);
     gfx_obj_set_visible(g_obj_anim_eye, false);
 
+    // Label textual usado como fallback para representar emoção sem imagem.
+    g_obj_label_eye = gfx_label_create(engine_handle);
+    gfx_obj_align(g_obj_label_eye, GFX_ALIGN_LEFT_MID, 10, 30);
+    gfx_obj_set_size(g_obj_label_eye, 140, 50);
+    gfx_label_set_text(g_obj_label_eye, "-.-");
+    gfx_label_set_color(g_obj_label_eye, GFX_COLOR_HEX(0xFFFFFF));
+    gfx_label_set_text_align(g_obj_label_eye, GFX_TEXT_ALIGN_CENTER);
+    gfx_label_set_font(g_obj_label_eye, (gfx_font_t)&BUILTIN_TEXT_FONT);
+    gfx_obj_set_visible(g_obj_label_eye, false);
+
     g_obj_label_toast = gfx_label_create(engine_handle);
     gfx_obj_align(g_obj_label_toast, GFX_ALIGN_TOP_MID, 0, 20);
     gfx_obj_set_size(g_obj_label_toast, 200, 40);
@@ -326,9 +371,24 @@ void EmoteEngine::SetEyes(const std::string &emoji_name, const bool repeat, cons
         gfx_anim_set_segment(g_obj_anim_eye, 0, 0xFFFF, fps, repeat);
         gfx_obj_set_visible(g_obj_anim_eye, true);
         gfx_anim_start(g_obj_anim_eye);
-    } else {
-        ESP_LOGW(TAG, "SetEyes: No emoji data found for %s", emoji_name.c_str());
+        if (g_obj_label_eye) {
+            gfx_obj_set_visible(g_obj_label_eye, false);
+        }
+        return;
     }
+
+    // Fallback: exibe desenho textual quando o asset de imagem não existe.
+    const char* drawing = EmotionToDrawing(emoji_name);
+    if (drawing && g_obj_label_eye) {
+        DisplayLockGuard lock(display);
+        gfx_anim_stop(g_obj_anim_eye);
+        gfx_obj_set_visible(g_obj_anim_eye, false);
+        gfx_label_set_text(g_obj_label_eye, drawing);
+        gfx_obj_set_visible(g_obj_label_eye, true);
+        return;
+    }
+
+    ESP_LOGW(TAG, "SetEyes: No emoji data/drawing found for %s", emoji_name.c_str());
 }
 
 void EmoteEngine::SetIcon(const std::string &icon_name, EmoteDisplay* const display)
@@ -563,6 +623,7 @@ void EmoteDisplay::AddLayoutData(const std::string &name, const std::string &ali
 
     const UIElement elements[] = {
         {g_obj_anim_eye,     UI_ELEMENT_EYE_ANIM},
+        {g_obj_label_eye,    UI_ELEMENT_EYE_LABEL},
         {g_obj_label_toast,  UI_ELEMENT_TOAST_LABEL},
         {g_obj_label_clock,  UI_ELEMENT_CLOCK_LABEL},
         {g_obj_anim_listen,  UI_ELEMENT_LISTEN_ANIM},
@@ -599,6 +660,9 @@ void EmoteDisplay::AddTextFont(std::shared_ptr<LvglFont> text_font)
     }
     if (g_obj_label_clock && text_font_) {
         gfx_label_set_font(g_obj_label_clock, const_cast<void*>(static_cast<const void*>(text_font_->font())));
+    }
+    if (g_obj_label_eye && text_font_) {
+        gfx_label_set_font(g_obj_label_eye, const_cast<void*>(static_cast<const void*>(text_font_->font())));
     }
 }
 

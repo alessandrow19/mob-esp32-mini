@@ -6,6 +6,7 @@
 
 #include <vector>
 #include <algorithm>
+#include <unordered_map>
 #include <font_awesome.h>
 #include <esp_log.h>
 #include <esp_err.h>
@@ -16,6 +17,48 @@
 #include "board.h"
 
 #define TAG "LcdDisplay"
+
+namespace {
+
+/**
+ * Retorna um desenho textual simples para cada emoção.
+ *
+ * Observação: usamos desenhos ASCII/UTF-8 curtos para evitar dependência
+ * de imagens e manter compatibilidade com fontes leves no firmware.
+ */
+const char* GetEmotionDrawing(const char* emotion) {
+    if (emotion == nullptr) {
+        return nullptr;
+    }
+
+    static const std::unordered_map<std::string, const char*> kEmotionDrawings = {
+        {"happy", "^_^"},
+        {"laughing", "xD"},
+        {"funny", "^o^"},
+        {"loving", "*_*"},
+        {"embarrassed", "^_^\""},
+        {"confident", "u_u"},
+        {"delicious", "^q^"},
+        {"sad", "T_T"},
+        {"crying", "Q_Q"},
+        {"sleepy", "-_-"},
+        {"silly", "@_@"},
+        {"angry", ">_<"},
+        {"surprised", "O_O"},
+        {"shocked", "0_0"},
+        {"thinking", "o_o?"},
+        {"winking", ";)"},
+        {"relaxed", "^~^"},
+        {"confused", "o_O"},
+        {"neutral", "-.-"},
+        {"idle", "-.-"},
+    };
+
+    const auto it = kEmotionDrawings.find(emotion);
+    return (it != kEmotionDrawings.end()) ? it->second : nullptr;
+}
+
+}  // namespace
 
 LV_FONT_DECLARE(BUILTIN_TEXT_FONT);
 LV_FONT_DECLARE(BUILTIN_ICON_FONT);
@@ -937,6 +980,19 @@ void LcdDisplay::SetEmotion(const char* emotion) {
     
     if (emoji_image_ == nullptr) {
         return;
+    }
+
+    // Prioridade: usar desenho textual por emoção (sem depender de imagem).
+    // Isso permite representar emoções como "happy/sad" mesmo sem assets.
+    if (emoji_label_ != nullptr) {
+        const char* drawing = GetEmotionDrawing(emotion);
+        if (drawing != nullptr) {
+            DisplayLockGuard lock(this);
+            lv_label_set_text(emoji_label_, drawing);
+            lv_obj_add_flag(emoji_image_, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_remove_flag(emoji_label_, LV_OBJ_FLAG_HIDDEN);
+            return;
+        }
     }
 
     auto emoji_collection = static_cast<LvglTheme*>(current_theme_)->emoji_collection();
