@@ -992,6 +992,10 @@ void LcdDisplay::SetEmotion(const char* emotion) {
         const char* drawing = GetEmotionDrawing(emotion);
         if (drawing != nullptr) {
             DisplayLockGuard lock(this);
+            auto lvgl_theme = static_cast<LvglTheme*>(current_theme_);
+            // Importante: desenho textual precisa usar fonte de texto comum,
+            // pois fonte de ícones pode não conter glifos ASCII (^_^, T_T, etc.).
+            lv_obj_set_style_text_font(emoji_label_, lvgl_theme->text_font()->font(), 0);
             lv_obj_set_style_text_color(emoji_label_, lv_color_hex(kEmotionDrawingColorHex), 0);
             lv_label_set_text(emoji_label_, drawing);
             lv_obj_add_flag(emoji_image_, LV_OBJ_FLAG_HIDDEN);
@@ -1007,6 +1011,7 @@ void LcdDisplay::SetEmotion(const char* emotion) {
         if (utf8 != nullptr && emoji_label_ != nullptr) {
             DisplayLockGuard lock(this);
             auto lvgl_theme = static_cast<LvglTheme*>(current_theme_);
+            lv_obj_set_style_text_font(emoji_label_, lvgl_theme->large_icon_font()->font(), 0);
             lv_obj_set_style_text_color(emoji_label_, lvgl_theme->text_color(), 0);
             lv_label_set_text(emoji_label_, utf8);
             lv_obj_add_flag(emoji_image_, LV_OBJ_FLAG_HIDDEN);
