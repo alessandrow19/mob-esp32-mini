@@ -163,21 +163,68 @@ SpiLcdDisplay::SpiLcdDisplay(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_h
         lv_display_set_offset(display_, offset_x, offset_y);
     }
 
-    SimpleTest();
+  
 
     SetupUI();
+    SimpleTest();
 }
 
 
 void LcdDisplay::SimpleTest() {
-    DisplayLockGuard lock(this);
+    if (!emotion_face_renderer_) {
+        ESP_LOGW(TAG, "EmotionFaceRenderer not initialized");
+        return;
+    }
 
-    lv_obj_t* screen = lv_screen_active();
-    lv_obj_clean(screen);
+    static const char* emotions[] = {
+        "neutral",
+        "happy",
+        "sad",
+        "angry",
+        "surprised",
+        "sleepy",
+        "thinking"
+    };
 
-    lv_obj_set_style_bg_color(screen, lv_color_hex(0x00FF00), 0);
-    lv_obj_set_style_bg_opa(screen, LV_OPA_COVER, 0);
+    constexpr int emotion_count = sizeof(emotions) / sizeof(emotions[0]);
+    constexpr int delay_ms = 600;
+
+    // Garante modo visual limpo
+    is_response_active_ = true;
+    SetTextWidgetsVisible(false);
+
+    for (int i = 0; i < emotion_count; i++) {
+        {
+            DisplayLockGuard lock(this);
+            emotion_face_renderer_->Render(emotions[i]);
+        }
+
+        // Força refresh LVGL
+        lv_timer_handler();
+        vTaskDelay(pdMS_TO_TICKS(delay_ms));
+    }
+
+    // Finaliza preview indo para neutral
+    {
+        DisplayLockGuard lock(this);
+        emotion_face_renderer_->Render("neutral");
+        SetTextWidgetsVisible(true);
+        is_response_active_ = false;
+    }
 }
+
+
+// void LcdDisplay::SimpleTest() {
+//     DisplayLockGuard lock(this);
+
+//     lv_obj_t* screen = lv_screen_active();
+//     lv_obj_clean(screen);
+
+//     lv_obj_set_style_bg_color(screen, lv_color_hex(0x00FF00), 0);
+//     lv_obj_set_style_bg_opa(screen, LV_OPA_COVER, 0);
+// }
+
+
 
 
 // RGB LCD实现
@@ -238,6 +285,7 @@ RgbLcdDisplay::RgbLcdDisplay(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_h
     if (offset_x != 0 || offset_y != 0) {
         lv_display_set_offset(display_, offset_x, offset_y);
     }
+    
 
     SetupUI();
 }
