@@ -979,7 +979,8 @@ void LcdDisplay::SetStatus(const char* status) {
 
     const bool is_face_only_mode = (status != nullptr) &&
         (std::strcmp(status, Lang::Strings::SPEAKING) == 0 ||
-         std::strcmp(status, Lang::Strings::LISTENING) == 0);
+         std::strcmp(status, Lang::Strings::LISTENING) == 0||
+         std::strcmp(status, Lang::Strings::STANDBY) == 0) ;
     if (is_face_only_mode == is_response_active_) {
         return;
     }
