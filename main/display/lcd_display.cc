@@ -1001,93 +1001,43 @@ void LcdDisplay::SetStatus(const char* status) {
 }
 
 void LcdDisplay::SetEmotion(const char* emotion) {
-    // Stop any running GIF animation
+    // Stop any running GIF animation to guarantee image-free emotion rendering.
     if (gif_controller_) {
         DisplayLockGuard lock(this);
         gif_controller_->Stop();
         gif_controller_.reset();
     }
 
-    if (emoji_image_ == nullptr) {
+    DisplayLockGuard lock(this);
+
+    if (emotion_face_renderer_ == nullptr) {
+        ESP_LOGW(TAG, "EmotionFaceRenderer not initialized");
         return;
     }
 
-    DisplayLockGuard lock(this);
-    auto lvgl_theme = static_cast<LvglTheme*>(current_theme_);
-
-    // Durante resposta: mostrar apenas a face (sem texto).
+    // Durante resposta: mostrar apenas a face (sem texto na tela).
     if (is_response_active_) {
         SetTextWidgetsVisible(false);
     }
 
-    if (emotion_face_renderer_ != nullptr) {
-        // Se emoção não tiver desenho específico, usa "neutral" para manter
-        // sempre uma face amigável em tela durante a resposta.
-        const bool rendered = emotion_face_renderer_->Render(emotion) ||
-                              (is_response_active_ && emotion_face_renderer_->Render("neutral"));
-        if (rendered) {
-            lv_obj_add_flag(emoji_image_, LV_OBJ_FLAG_HIDDEN);
-            if (emoji_label_ != nullptr) {
-                lv_obj_add_flag(emoji_label_, LV_OBJ_FLAG_HIDDEN);
-            }
-            return;
-        }
+    // Política de memória: emoções SEM imagens/GIF/fontawesome.
+    // Sempre usa desenho vetorial; quando emoção não existe, cai para neutral.
+    const bool rendered = emotion_face_renderer_->Render(emotion) ||
+                          emotion_face_renderer_->Render("neutral");
 
+    if (!rendered) {
+        ESP_LOGW(TAG, "No drawable emotion style available, hiding face layer");
         emotion_face_renderer_->SetVisible(false);
-        emotion_face_renderer_->RestoreContentBackground(lvgl_theme->chat_background_color());
-    }
-
-    auto emoji_collection = lvgl_theme->emoji_collection();
-    auto image = emoji_collection != nullptr ? emoji_collection->GetEmojiImage(emotion) : nullptr;
-    if (image == nullptr) {
-        const char* utf8 = font_awesome_get_utf8(emotion);
-        if (utf8 != nullptr && emoji_label_ != nullptr) {
-            lv_obj_set_style_text_font(emoji_label_, lvgl_theme->large_icon_font()->font(), 0);
-            lv_obj_set_style_text_color(emoji_label_, lvgl_theme->text_color(), 0);
-            lv_label_set_text(emoji_label_, utf8);
-            lv_obj_add_flag(emoji_image_, LV_OBJ_FLAG_HIDDEN);
-            lv_obj_remove_flag(emoji_label_, LV_OBJ_FLAG_HIDDEN);
-        }
         return;
     }
 
-    if (image->IsGif()) {
-        gif_controller_ = std::make_unique<LvglGif>(image->image_dsc());
-        if (gif_controller_->IsLoaded()) {
-            gif_controller_->SetFrameCallback([this]() {
-                lv_image_set_src(emoji_image_, gif_controller_->image_dsc());
-            });
-            lv_image_set_src(emoji_image_, gif_controller_->image_dsc());
-            gif_controller_->Start();
-            if (emoji_label_ != nullptr) {
-                lv_obj_add_flag(emoji_label_, LV_OBJ_FLAG_HIDDEN);
-            }
-            lv_obj_remove_flag(emoji_image_, LV_OBJ_FLAG_HIDDEN);
-        } else {
-            ESP_LOGE(TAG, "Failed to load GIF for emotion: %s", emotion);
-            gif_controller_.reset();
-        }
-    } else {
-        lv_image_set_src(emoji_image_, image->image_dsc());
-        if (emoji_label_ != nullptr) {
-            lv_obj_add_flag(emoji_label_, LV_OBJ_FLAG_HIDDEN);
-        }
-        lv_obj_remove_flag(emoji_image_, LV_OBJ_FLAG_HIDDEN);
-    }
-
-#if CONFIG_USE_WECHAT_MESSAGE_STYLE
-    const uint32_t child_count = lv_obj_get_child_cnt(content_);
-    if (std::strcmp(emotion, "neutral") == 0 && child_count > 0) {
-        if (gif_controller_) {
-            gif_controller_->Stop();
-            gif_controller_.reset();
-        }
+    // Garante que nenhum caminho de imagem fique visível.
+    if (emoji_image_ != nullptr) {
         lv_obj_add_flag(emoji_image_, LV_OBJ_FLAG_HIDDEN);
-        if (emoji_label_ != nullptr) {
-            lv_obj_add_flag(emoji_label_, LV_OBJ_FLAG_HIDDEN);
-        }
     }
-#endif
+    if (emoji_label_ != nullptr) {
+        lv_obj_add_flag(emoji_label_, LV_OBJ_FLAG_HIDDEN);
+    }
 }
 
 void LcdDisplay::SetTheme(Theme* theme) {
