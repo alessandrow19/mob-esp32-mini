@@ -977,15 +977,18 @@ void LcdDisplay::SetTextWidgetsVisible(bool visible) {
 void LcdDisplay::SetStatus(const char* status) {
     LvglDisplay::SetStatus(status);
 
-    const bool is_speaking = (status != nullptr) && (std::strcmp(status, Lang::Strings::SPEAKING) == 0);
-    if (is_speaking == is_response_active_) {
+    const bool is_face_only_mode = (status != nullptr) &&
+        (std::strcmp(status, Lang::Strings::SPEAKING) == 0 ||
+         std::strcmp(status, Lang::Strings::LISTENING) == 0);
+    if (is_face_only_mode == is_response_active_) {
         return;
     }
 
     std::string deferred_text_to_flush;
     {
         DisplayLockGuard lock(this);
-        is_response_active_ = is_speaking;
+        // Em SPEAKING/LISTENING exibimos somente os olhos (sem barra/topo/textos).
+        is_response_active_ = is_face_only_mode;
         SetTextWidgetsVisible(!is_response_active_);
 
         // Captura texto pendente para publicar após sair do lock.
