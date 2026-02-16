@@ -4,10 +4,10 @@
 #include <string>
 
 /**
- * Renderizador de faces geométricas em tela cheia para emoções.
+ * Renderizador de olhos geométricos em tela cheia para emoções.
  *
- * Objetivo: encapsular toda a lógica visual (olhos/boca/cores/estados)
- * fora do LcdDisplay para manter o código modular e legível.
+ * Estratégia: visual no estilo Cozmo (somente olhos), sem boca e sem imagens,
+ * para economizar memória e manter o desenho expressivo.
  */
 class EmotionFaceRenderer {
 public:
@@ -27,31 +27,22 @@ public:
     void RestoreContentBackground(lv_color_t color);
 
 public:
-    enum class MouthStyle {
-        Smile,
-        Sad,
-        Neutral,
-        Hmm,
-        Surprised,
-    };
-
-    struct FaceStyle {
+    struct EyeStyle {
         int eye_w;
         int eye_h;
         int eye_gap;
         int eye_y;
         int eye_radius;
-        MouthStyle mouth_style;
-        int mouth_w;
-        int mouth_h;
-        int mouth_y;
+        int left_dx;
+        int right_dx;
+        int left_dy;
+        int right_dy;
     };
 
 private:
-    const FaceStyle* ResolveStyle(const char* emotion) const;
+    const EyeStyle* ResolveStyle(const char* emotion) const;
     void EnsureObjects();
-    void ApplyEyes(const FaceStyle& style);
-    void ApplyMouth(const FaceStyle& style);
+    void ApplyEyes(const EyeStyle& style);
 
     lv_obj_t* parent_ = nullptr;
     lv_obj_t* content_layer_ = nullptr;
@@ -60,9 +51,5 @@ private:
     lv_obj_t* eye_left_ = nullptr;
     lv_obj_t* eye_right_ = nullptr;
 
-    lv_obj_t* mouth_line_ = nullptr;
-    lv_obj_t* mouth_arc_ = nullptr;
-    lv_obj_t* mouth_o_ = nullptr;
-
-    static constexpr uint32_t kFaceColorHex = 0x66D9FF; // azul suave infantil
+    static constexpr uint32_t kEyeColorHex = 0x66D9FF; // azul suave infantil
 };
