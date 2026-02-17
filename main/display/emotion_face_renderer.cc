@@ -7,37 +7,37 @@ namespace {
 using Style = EmotionFaceRenderer::EyeStyle;
 
 // Presets de olhos - Foco em CLAREZA emocional
-// [width, height, pupil, x_pos, y_pos, tilt_left, tilt_right, offset_y_left, offset_y_right]
+// [width, height, radius, x_pos, y_pos, tilt_left, tilt_right, offset_y_left, offset_y_right]
 const std::unordered_map<std::string, Style> kEmotionEyeStyles = {
     // ==================== BASE ====================
-    {"neutral",    {64, 48, 36, -18, 16,  0,  0,  0,  0}},  // Olhos abertos, retos
-    {"idle",       {64, 46, 36, -18, 16,  0,  0,  1,  0}},  // Leve assimetria (respirando)
-    {"relaxed",    {64, 40, 36, -18, 17,  0,  0,  0,  0}},  // Meio fechadinho
+    {"neutral",    {54, 54, LV_RADIUS_CIRCLE, -18, 16,  0,  0,  0,  0}},  // O O (base redonda)
+    {"idle",       {52, 50, LV_RADIUS_CIRCLE, -18, 16,  0,  0,  1,  0}},  // Leve assimetria (respirando)
+    {"relaxed",    {54, 42, 22,               -18, 17,  0,  0,  0,  0}},  // Arredondado, meio fechado
     
     // ==================== FELIZ / POSITIVO ====================
-    {"happy",      {64, 14, 36, -18, 14,  3,  3, -2, -2}},  // ^ ^ (fechado + sobe)
-    {"laughing",   {64, 10, 36, -18, 13,  4,  4, -3, -3}},  // ^ ^ (mais fechado ainda)
-    {"loving",     {64, 20, 36, -18, 15, -3, -3, -1, -1}},  // ♥ (inclina pra dentro)
-    {"delicious",  {64, 16, 36, -18, 14,  2,  2, -2, -2}},  // ^ ^ (feliz com fome)
-    {"confident",  {64, 24, 38, -18, 15, -1, -1, -1, -1}},  // Meio fechado, firme
+    {"happy",      {56, 22, 12,               -18, 14,  3,  3, -2, -2}},  // ^ ^ (redondo nas pontas)
+    {"laughing",   {56, 16, 10,               -18, 13,  4,  4, -3, -3}},  // ^ ^ (mais fechado ainda)
+    {"loving",     {54, 30, 15,               -18, 15, -3, -3, -1, -1}},  // Curva suave pra dentro
+    {"delicious",  {56, 20, 12,               -18, 14,  2,  2, -2, -2}},  // Feliz com fome
+    {"confident",  {56, 28, 14,               -18, 15, -1, -1, -1, -1}},  // Firme, sem perder arredondado
     
     // ==================== TRISTE / NEGATIVO ====================
-    {"sad",        {60, 28, 34, -18, 20, -4, -4,  3,  3}},  // \ / (cantos internos sobem)
-    {"crying",     {60, 26, 34, -18, 21, -5, -5,  4,  4}},  // \ / (mais caído + tremido)
-    {"embarrassed",{58, 24, 34, -20, 18, -3,  3,  2,  2}},  // Olha pros lados
-    {"confused",   {60, 26, 34, -18, 17, -4,  2,  1, -1}},  // Um diferente do outro
+    {"sad",        {52, 34, 16,               -18, 20, -4, -4,  3,  3}},  // Redondo + caído
+    {"crying",     {52, 32, 16,               -18, 21, -5, -5,  4,  4}},  // Mais caído
+    {"embarrassed",{50, 30, 15,               -20, 18, -3,  3,  2,  2}},  // Olha pros lados
+    {"confused",   {52, 32, 16,               -18, 17, -4,  2,  1, -1}},  // Assimétrico
     
     // ==================== INTENSO ====================
-    {"angry",      {62, 26, 36, -18, 14,  5,  5,  2,  2}},  // V V (cantos internos descem)
-    {"surprised",  {56, 56, 40, -18, 14,  0,  0,  0,  0}},  // O O (máximo aberto)
-    {"shocked",    {54, 58, 38, -18, 13,  0,  0,  1, -1}},  // O O (tremido)
-    {"thinking",   {60, 24, 34, -20, 16, -3,  2,  1, -1}},  // Olha pro lado + fechado
+    {"angry",      {54, 30, 15,               -18, 14,  5,  5,  2,  2}},  // Inclinado, mantendo volume
+    {"surprised",  {58, 58, LV_RADIUS_CIRCLE, -18, 14,  0,  0,  0,  0}},  // O O (máximo aberto)
+    {"shocked",    {56, 60, LV_RADIUS_CIRCLE, -18, 13,  0,  0,  1, -1}},  // O O (tremido)
+    {"thinking",   {52, 30, 15,               -20, 16, -3,  2,  1, -1}},  // Olha pro lado
     
     // ==================== ESTADOS ====================
-    {"sleepy",     {64,  8, 32, -18, 22,  0,  0,  2,  2}},  // _ _ (quase fechando)
-    {"winking",    {64, 12, 36, -18, 14,  3,  0, -2, -8}},  // ^ - (um fecha)
-    {"silly",      {56, 28, 36, -22, 16, -5,  5,  0,  0}},  // > < (vesgo)
-    {"funny",      {58, 26, 36, -20, 16, -4,  4, -1,  1}},  // > < (menos vesgo)
+    {"sleepy",     {56, 12,  8,               -18, 22,  0,  0,  2,  2}},  // _ _ (quase fechando)
+    {"winking",    {56, 16, 10,               -18, 14,  3,  0, -2, -8}},  // ^ - (um fecha)
+    {"silly",      {50, 34, 16,               -22, 16, -5,  5,  0,  0}},  // Vesgo
+    {"funny",      {52, 32, 16,               -20, 16, -4,  4, -1,  1}},  // Vesgo suave
 };
 
 } // namespace
@@ -89,12 +89,13 @@ void EmotionFaceRenderer::ApplyEyes(const EyeStyle& style)
     const int base_right_x = (style.eye_w / 2 + style.eye_gap);
 
     lv_obj_set_size(eye_left_, style.eye_w, style.eye_h);
-    lv_obj_set_style_radius(eye_left_, LV_RADIUS_CIRCLE, 0);
+    // Cada emoção controla seu raio para preservar expressão sem perder o visual arredondado.
+    lv_obj_set_style_radius(eye_left_, style.eye_radius, 0);
 
     lv_obj_align(eye_left_, LV_ALIGN_CENTER, base_left_x + style.left_dx, style.eye_y + style.left_dy);
 
     lv_obj_set_size(eye_right_, style.eye_w, style.eye_h);
-    lv_obj_set_style_radius(eye_right_, LV_RADIUS_CIRCLE, 0);
+    lv_obj_set_style_radius(eye_right_, style.eye_radius, 0);
     lv_obj_align(eye_right_, LV_ALIGN_CENTER, base_right_x + style.right_dx, style.eye_y + style.right_dy);
 }
 
